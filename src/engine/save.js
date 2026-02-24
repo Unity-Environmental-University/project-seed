@@ -13,6 +13,20 @@
  * All write operations are fire-and-forget by default (no await needed
  * for player navigation/dialog — we don't block the game on a save).
  * Critical operations (act changes, GM writes) should await.
+ *
+ * ── KNOWN RISK: STATE DRIFT ───────────────────────────────────────────────
+ * Patches are fire-and-forget. Rapid navigation or concurrent GM writes can
+ * cause patches to arrive at the server out of order, triggering a 409
+ * seq_mismatch. When that happens the patch is dropped and a console.error
+ * is emitted — game continues but that action is not persisted.
+ *
+ * The server enforces seq to make this LOUD rather than silent.
+ * A 409 in the console means state has drifted. If this becomes frequent:
+ *   → implement a write queue here (serialize patches, retry on 409)
+ *   → or await patches at action boundaries instead of fire-and-forget
+ *
+ * For now: trust the log, fail loud, fix when it's actually a problem.
+ * ─────────────────────────────────────────────────────────────────────────
  */
 
 import { get } from 'svelte/store';
@@ -33,6 +47,19 @@ async function apiFetch(method, path, body) {
     headers: body ? { 'Content-Type': 'application/json' } : {},
     body: body ? JSON.stringify(body) : undefined,
   });
+
+  if (res.status === 409) {
+    const detail = await res.json().catch(() => ({}));
+    // STATE DRIFT DETECTED — see module comment above
+    console.error(
+      `[Save] STATE DRIFT: seq mismatch on ${path}.\n` +
+      `  Client seq: ${detail.clientSeq}, Server seq: ${detail.serverSeq}\n` +
+      `  This patch was dropped. Reload the save to resync.\n` +
+      `  If this happens often, implement a write queue in save.js.`
+    );
+    return { ok: false, drifted: true, ...detail };
+  }
+
   if (!res.ok) throw new Error(`[Save] ${method} ${path} → ${res.status}`);
   return res.json();
 }

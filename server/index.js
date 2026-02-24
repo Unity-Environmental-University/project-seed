@@ -55,6 +55,7 @@ function makeEmptySave(slotId) {
   return {
     version: 1,
     slotId,
+    seq: 0,      // increments on every write — used for drift detection
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     player: {
@@ -119,6 +120,31 @@ app.patch('/saves/:slotId', (req, res) => {
   let save = readSave(req.params.slotId);
   if (!save) save = makeEmptySave(req.params.slotId);
 
+  // ── Seq drift detection ───────────────────────────────────────────────────
+  // Client must send the seq it last loaded. If it doesn't match, the client
+  // is operating on stale state — patches would silently corrupt the save.
+  //
+  // THIS IS A HARD FAIL, NOT A MERGE.
+  // The client should reload and re-derive its action from fresh state.
+  //
+  // Known risk: fire-and-forget patches from rapid navigation can arrive
+  // out of order and trigger false 409s. When that becomes a real problem,
+  // implement a write queue on the client. For now: fail loud, fix later.
+  // ─────────────────────────────────────────────────────────────────────────
+  const clientSeq = req.body.seq;
+  if (clientSeq !== undefined && clientSeq !== save.seq) {
+    console.warn(
+      `[Save] seq mismatch on ${req.params.slotId}: ` +
+      `client has ${clientSeq}, server has ${save.seq}. Rejecting.`
+    );
+    return res.status(409).json({
+      error: 'seq_mismatch',
+      clientSeq,
+      serverSeq: save.seq,
+      message: 'Client state is stale. Reload save before patching.',
+    });
+  }
+
   const { player, rooms, appendLog } = req.body;
 
   if (player) {
@@ -145,9 +171,10 @@ app.patch('/saves/:slotId', (req, res) => {
     save.log = [...save.log, ...appendLog];
   }
 
+  save.seq = (save.seq ?? 0) + 1;
   save.updatedAt = new Date().toISOString();
   writeSave(req.params.slotId, save);
-  res.json({ ok: true });
+  res.json({ ok: true, seq: save.seq });
 });
 
 // Delete a slot
