@@ -1,0 +1,186 @@
+# ─────────────────────────────────────────────────────────────
+# LANGUAGE STATION — Act 1, Room: Arrival Bay
+#
+# The first room. The cohort has just docked.
+# Human-authored. All content here is static.
+# ─────────────────────────────────────────────────────────────
+
+id: arrival_bay
+name: Arrival Bay
+act: 1
+gmGenerated: false
+
+description: |
+  The docking collar sighs open and cold light floods in.
+  The station smells like recycled air and something older — ozone,
+  maybe, or the faint mineral trace of deep space. Your cohort
+  shuffles through ahead of you.
+
+  A long corridor stretches forward. To your left, a door marked
+  ORIENTATION. Ahead, the corridor curves out of sight.
+
+  Dr. Yuen is already talking.
+
+exits:
+  forward:
+    roomId: corridor_a
+  left:
+    roomId: orientation_room
+
+npcs:
+  - id: dr_yuen
+    name: Dr. Yuen
+    description: Your faculty lead. She has been here before — or says she has.
+    dialog:
+      entry: yuen_arrival_entry
+
+interactables:
+  - id: docking_notice
+    name: Notice Board
+    description: A printed sheet of paper taped to the wall. Curling at the edges.
+    text: |
+      WELCOME, COHORT 7.
+      Please proceed to Orientation before exploring common areas.
+      Do not enter the Relay Room without a staff escort.
+      Station systems are currently in passive mode.
+      — Station Administration
+
+# ─────────────────────────────────────────────────────────────
+# Dialog trees for this room.
+# Nodes reference each other by id.
+# source: authored = human-written (never changes)
+# source: gm       = AI GM generated (mixed in at runtime, looks identical)
+# ─────────────────────────────────────────────────────────────
+
+dialog:
+  yuen_arrival_entry:
+    id: yuen_arrival_entry
+    speaker: dr_yuen
+    source: authored
+    text: |
+      "Cohort seven — eyes up. I know you're tired. The disorientation
+      is normal; the transit field does something to your inner ear.
+      Take a breath."
+    options:
+      - text: "What is this place exactly?"
+        source: authored
+        next: yuen_what_is_this
+      - text: "How long are we here?"
+        source: authored
+        next: yuen_how_long
+      - text: Say nothing and look around.
+        source: authored
+        next: null
+
+  yuen_what_is_this:
+    id: yuen_what_is_this
+    speaker: dr_yuen
+    source: authored
+    text: |
+      "Research station. Officially. There's an anomaly in the local
+      semantic field — language behaves differently out here. Our job
+      is to observe and document."
+
+      She pauses, looking at something just past your shoulder.
+
+      "Stay with the group."
+    options:
+      - text: "Semantic field?"
+        source: authored
+        next: yuen_semantic_field
+      - text: "What's past your shoulder?"
+        source: authored
+        next: yuen_nothing_there
+      - text: Nod and move on.
+        source: authored
+        next: null
+
+  yuen_how_long:
+    id: yuen_how_long
+    speaker: dr_yuen
+    source: authored
+    text: |
+      "Three weeks. Maybe four. It depends on what we find."
+
+      She says it like she's reading from a script she doesn't quite believe.
+    options:
+      - text: "Depends on what you find how?"
+        source: authored
+        next: yuen_depends
+      - text: Nod and move on.
+        source: authored
+        next: null
+
+  yuen_semantic_field:
+    id: yuen_semantic_field
+    speaker: dr_yuen
+    source: authored
+    text: |
+      "Language has topology. Meaning has weight, distance, direction.
+      Out here, those properties behave — unusually.
+      You'll see. Or you'll feel it first."
+    options:
+      - text: "Has anyone studied this before?"
+        source: authored
+        next: yuen_studied_before
+      - text: Nod and move on.
+        source: authored
+        next: null
+
+  yuen_nothing_there:
+    id: yuen_nothing_there
+    speaker: dr_yuen
+    source: authored
+    text: |
+      She turns. The corridor is empty.
+      "Nothing. I get turned around in here sometimes."
+
+      She doesn't seem convinced by her own answer.
+    options:
+      - text: Nod and move on.
+        source: authored
+        next: null
+
+  yuen_depends:
+    id: yuen_depends
+    speaker: dr_yuen
+    source: authored
+    text: |
+      A long pause.
+      "On how cooperative the station is."
+    options:
+      - text: "Cooperative?"
+        source: authored
+        next: yuen_cooperative
+      - text: Let it go.
+        source: authored
+        next: null
+
+  yuen_studied_before:
+    id: yuen_studied_before
+    speaker: dr_yuen
+    source: authored
+    text: |
+      "Twice before. Both cohorts completed their work.
+      Both filed comprehensive reports."
+
+      She straightens her jacket.
+
+      "The reports were coherent, which is more than you'd expect."
+    options:
+      - text: Let it go.
+        source: authored
+        next: null
+
+  yuen_cooperative:
+    id: yuen_cooperative
+    speaker: dr_yuen
+    source: authored
+    text: |
+      "The systems. Old hardware. You know how it is."
+
+      She is already walking toward Orientation.
+    options:
+      - text: Follow her.
+        source: authored
+        next: null
