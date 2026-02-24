@@ -1,0 +1,156 @@
+# ─────────────────────────────────────────────────────────────
+# LANGUAGE STATION — Act 1, Room: Orientation Room
+# Human-authored. Tutorial room — teaches interaction patterns.
+# ─────────────────────────────────────────────────────────────
+
+id: orientation_room
+name: Orientation Room
+act: 1
+gmGenerated: false
+
+gm_hint: |
+  Tutorial space. Safe, well-lit, slightly over-explained.
+  The contrast with the rest of the station should feel deliberate —
+  like a stage set that was assembled quickly.
+  Archivist Morel is the tutorial NPC: friendly, a little bureaucratic.
+  The terminal puzzle here sets the flag that unlocks the relay_room exit
+  in corridor_a. The GM may add options to Morel in later acts, but not here.
+
+description: |
+  The room is bright — aggressively so, after the dim corridor.
+  Folding chairs face a projection screen. A few of your cohort
+  have already found seats, tablets in hand.
+
+  On the wall: a laminated sheet titled STATION SYSTEMS — QUICK REFERENCE.
+  In the corner, a terminal blinks patiently.
+
+  Archivist Morel catches your eye and raises a hand in greeting.
+
+exits:
+  back:
+    roomId: arrival_bay
+
+npcs:
+  - id: archivist_morel
+    name: Archivist Morel
+    description: Cheerful, efficient. Responsible for onboarding Cohort 7.
+    dialog:
+      entry: morel_entry
+
+interactables:
+  - id: quick_reference
+    name: Quick Reference Sheet
+    description: |
+      STATION SYSTEMS — QUICK REFERENCE
+      · Rooms are connected by corridors. Some passages require clearance.
+      · The terminal in each area logs your activity.
+      · If you encounter anomalous output, document it. Do not attempt to correct it.
+      · The station does not respond to direct queries. Do not ask it questions.
+    setFlag: read_quick_reference
+
+  - id: orientation_terminal
+    name: Terminal
+    description: |
+      A standard interface. It shows a login prompt, then a single blinking line:
+
+        > COHORT 7 REGISTERED. CLEARANCE: LEVEL 1.
+          ACCESS GRANTED: COMMON AREAS, ORIENTATION, BAY.
+          RELAY ROOM: STAFF ESCORT REQUIRED.
+
+      Below, in smaller text, a line that wasn't in the orientation materials:
+
+        > HELLO.
+    setFlag: used_orientation_terminal
+
+dialog:
+  morel_entry:
+    id: morel_entry
+    speaker: archivist_morel
+    source: authored
+    text: |
+      "Welcome, welcome. You made it through transit in one piece — that's
+      always a good sign. I'm Morel. I'll get you oriented."
+
+      He gestures at the terminal in the corner.
+
+      "When you're ready, log in over there. It'll register your clearance
+      and give you access to the common areas. Standard stuff."
+    options:
+      - text: "What's the Relay Room?"
+        source: authored
+        next: morel_relay_room
+      - text: "The terminal said hello to me."
+        source: authored
+        next: morel_terminal_said_hello
+        requires: used_orientation_terminal
+      - text: "Got it. Thanks."
+        source: authored
+        next: null
+
+  morel_relay_room:
+    id: morel_relay_room
+    speaker: archivist_morel
+    source: authored
+    text: |
+      "Old communications hub. Still functional, technically, but the
+      output's been — unreliable. We keep it staff-only as a precaution."
+
+      He smiles like this is a completely normal thing to say.
+
+      "You'll probably never need to go in there."
+    options:
+      - text: "Unreliable how?"
+        source: authored
+        next: morel_unreliable
+      - text: "Okay."
+        source: authored
+        next: null
+
+  morel_unreliable:
+    id: morel_unreliable
+    speaker: archivist_morel
+    source: authored
+    text: |
+      "Oh, you know. Echoes. Old transmissions cycling back through.
+      The semantic field plays havoc with signal processing."
+
+      A brief pause.
+
+      "Document anything unusual. That's the protocol."
+    options:
+      - text: "Right. Document it."
+        source: authored
+        next: null
+
+  morel_terminal_said_hello:
+    id: morel_terminal_said_hello
+    speaker: archivist_morel
+    source: authored
+    text: |
+      He glances at the terminal. Glances back at you.
+
+      "That's — a display glitch. Happens sometimes with the old hardware."
+
+      He says it without hesitation. He has clearly said it before.
+    options:
+      - text: "Sure."
+        source: authored
+        next: null
+      - text: "It felt like it meant it."
+        source: authored
+        next: morel_meant_it
+
+  morel_meant_it:
+    id: morel_meant_it
+    speaker: archivist_morel
+    source: authored
+    text: |
+      A long pause. He looks at you carefully.
+
+      "Document it," he says finally. "That's the protocol."
+
+      He doesn't say anything else.
+    options:
+      - text: Nod and let it go.
+        source: authored
+        next: null

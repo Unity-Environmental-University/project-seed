@@ -1,0 +1,68 @@
+# ─────────────────────────────────────────────────────────────
+# LANGUAGE STATION — Act 1, Room: Corridor A
+# Human-authored. The first branching space — more exits than
+# the player can immediately use. Relay Room is locked.
+# ─────────────────────────────────────────────────────────────
+
+id: corridor_a
+name: Corridor A
+act: 1
+gmGenerated: false
+
+gm_hint: |
+  The first room that feels like the station proper.
+  The Relay Room door is locked — requires used_orientation_terminal.
+  The GM may inject options for the wall panel interactable in later acts,
+  particularly to introduce the Station's presence before Act 2.
+  The corridor itself should feel slightly longer than it looks.
+  There are no NPCs here by default — the GM may place one if narratively warranted.
+
+description: |
+  The corridor curves away in both directions. The light here is dimmer —
+  panels overhead flicker in a rhythm that almost sounds deliberate.
+
+  To your right, a door marked RELAY ROOM. A keypad beside it glows amber.
+  Behind you, the Arrival Bay.
+  Ahead, the corridor continues into the station's interior.
+
+  On the wall: a panel of small indicator lights, most of them green.
+  One is red. One is a color you don't have a word for.
+
+exits:
+  back:
+    roomId: arrival_bay
+  forward:
+    roomId: commons
+  right:
+    roomId: relay_room
+    requires: used_orientation_terminal
+    lockedMessage: |
+      The keypad glows amber. You haven't registered your clearance yet.
+      Orientation first.
+
+npcs: []
+
+interactables:
+  - id: indicator_panel
+    name: Indicator Panel
+    description: |
+      The lights are labeled in small text below each one.
+      Most read NOMINAL. The red one reads RELAY — SIGNAL ANOMALY.
+      The other one — the one that isn't quite a color — has no label.
+      The space beneath it is blank, as if the label was never printed,
+      or was removed, or simply isn't there.
+
+  - id: corridor_sign
+    name: Directional Sign
+    description: |
+      → COMMONS / LABS / QUARTERS
+      ← ARRIVAL BAY / DOCKING
+      → RELAY ROOM (STAFF ONLY)
+
+      Someone has written below, in pencil, very small:
+      "it changes when you're not looking"
+
+      The handwriting doesn't match anyone on the staff roster.
+      You don't know how you know that.
+
+dialog: {}

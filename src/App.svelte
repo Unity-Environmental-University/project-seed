@@ -1,79 +1,25 @@
 <script>
   import { onMount } from 'svelte';
-  import { currentRoomId, rooms, registerRoom, markVisited } from './engine/state.js';
+  import { currentRoomId, rooms, activeDialog, markVisited } from './engine/state.js';
   import { navigate, getAvailableExits } from './engine/navigation.js';
-  import { activeDialog } from './engine/state.js';
   import { startDialog, chooseOption, closeDialog } from './engine/dialog.js';
+  import { loadAllContent, resolveDialogNode } from './engine/loader.js';
+  import RoomMessage from './ui/RoomMessage.svelte';
 
-  // ── Stub: load the arrival bay room directly for now ──────────────────────
-  // TODO: replace with a proper YAML loader that reads from /content
-  const arrivalBay = {
-    id: 'arrival_bay',
-    name: 'Arrival Bay',
-    description: `The docking collar sighs open and cold light floods in.
-The station smells like recycled air and something older — ozone,
-maybe, or the faint mineral trace of deep space. Your cohort
-shuffles through ahead of you.
+  // ── Inline message (replaces alert()) ────────────────────────────────────
+  let message = null; // { text, duration }
 
-Dr. Yuen is already talking.`,
-    exits: {
-      forward: 'corridor_a',
-      left: 'orientation_room',
-    },
-    npcs: [
-      {
-        id: 'dr_yuen',
-        name: 'Dr. Yuen',
-        description: 'Your faculty lead. She has been here before — or says she has.',
-        dialog: {
-          id: 'yuen_arrival_entry',
-          speaker: 'dr_yuen',
-          source: 'authored',
-          text: `"Cohort seven — eyes up. I know you're tired. The disorientation is normal; the transit field does something to your inner ear. Take a breath."`,
-          options: [
-            {
-              text: 'What is this place exactly?',
-              source: 'authored',
-              next: {
-                id: 'yuen_what_is_this',
-                speaker: 'dr_yuen',
-                source: 'authored',
-                text: `"Research station. Officially. There's an anomaly in the local semantic field — language behaves differently out here. Our job is to observe and document." She pauses. "Stay with the group."`,
-                options: [{ text: 'Nod and move on.', source: 'authored', next: null }],
-              },
-            },
-            {
-              text: 'How long are we here?',
-              source: 'authored',
-              next: {
-                id: 'yuen_how_long',
-                speaker: 'dr_yuen',
-                source: 'authored',
-                text: `"Three weeks. Maybe four. It depends on what we find." She says it like she's reading from a script she doesn't quite believe.`,
-                options: [{ text: 'Nod and move on.', source: 'authored', next: null }],
-              },
-            },
-            {
-              text: 'Say nothing and look around.',
-              source: 'authored',
-              next: null,
-            },
-          ],
-        },
-      },
-    ],
-    interactables: [
-      {
-        id: 'docking_notice',
-        name: 'Notice Board',
-        description: 'WELCOME, COHORT 7.\nPlease proceed to Orientation before exploring common areas.\nDo not enter the Relay Room without a staff escort.',
-      },
-    ],
-    gmGenerated: false,
-  };
+  function showMessage(text, duration = 3500) {
+    message = { text, duration };
+  }
 
+  function clearMessage() {
+    message = null;
+  }
+
+  // ── Boot ──────────────────────────────────────────────────────────────────
   onMount(() => {
-    registerRoom(arrivalBay);
+    loadAllContent();
     markVisited('arrival_bay');
   });
 
@@ -81,34 +27,52 @@ Dr. Yuen is already talking.`,
   $: room = $rooms[$currentRoomId];
   $: exits = room ? getAvailableExits() : [];
 
+  // ── Actions ───────────────────────────────────────────────────────────────
+
   function talkTo(npc) {
-    startDialog(npc.dialog);
+    if (!npc.dialogEntry || !room._dialog?.[npc.dialogEntry]) {
+      showMessage(`${npc.name} doesn't seem to want to talk right now.`);
+      return;
+    }
+    const node = resolveDialogNode(room._dialog, npc.dialogEntry);
+    if (node) startDialog(node);
   }
 
   function examine(item) {
-    alert(item.description); // placeholder — replace with proper UI component
+    showMessage(item.description ?? item.text ?? 'Nothing more to see here.', 0);
   }
 
   function tryNavigate(direction) {
+    clearMessage();
     const result = navigate(direction);
     if (!result.success) {
-      // TODO: surface as in-game message, not alert
-      alert(result.reason);
+      showMessage(result.reason);
     }
   }
 </script>
 
 <main class="station">
   {#if room}
-    <!-- Room -->
-    <section class="room">
+    <!-- Room header -->
+    <header class="room-header">
       <h1 class="room-name">{room.name}</h1>
       {#if room.gmGenerated}
-        <!-- DEV INDICATOR: remove or hide in production UI -->
-        <span class="gm-badge">GM</span>
+        <!-- DEV ONLY: visible indicator that this room was GM-generated, not authored -->
+        <span class="gm-badge" title="GM-generated room (dev indicator)">GM</span>
       {/if}
-      <p class="room-description">{room.description}</p>
-    </section>
+    </header>
+
+    <!-- Room description -->
+    <p class="room-description">{room.description}</p>
+
+    <!-- Inline message -->
+    {#if message}
+      <RoomMessage
+        text={message.text}
+        duration={message.duration}
+        onDismiss={clearMessage}
+      />
+    {/if}
 
     <!-- Exits -->
     {#if exits.length}
@@ -119,9 +83,11 @@ Dr. Yuen is already talking.`,
             class="exit-btn"
             class:locked={exit.locked}
             disabled={exit.locked}
+            title={exit.locked ? exit.lockedMessage : undefined}
             on:click={() => tryNavigate(exit.direction)}
           >
             {exit.direction}
+            {#if exit.locked}<span class="lock-glyph">·</span>{/if}
           </button>
         {/each}
       </nav>
@@ -150,18 +116,19 @@ Dr. Yuen is already talking.`,
         {/each}
       </section>
     {/if}
+
   {:else}
     <p class="loading">Initializing…</p>
   {/if}
 
   <!-- Dialog overlay -->
   {#if $activeDialog}
-    <div class="dialog-overlay">
+    <div class="dialog-overlay" role="dialog" aria-modal="true">
       <div class="dialog-box">
         <p class="dialog-speaker">{$activeDialog.speaker}</p>
         <p class="dialog-text">{$activeDialog.text}</p>
         <div class="dialog-options">
-          {#each $activeDialog.options as option}
+          {#each ($activeDialog.options ?? []) as option}
             <button class="option-btn" on:click={() => chooseOption(option)}>
               {option.text}
             </button>
@@ -176,6 +143,8 @@ Dr. Yuen is already talking.`,
 </main>
 
 <style>
+  :global(*, *::before, *::after) { box-sizing: border-box; }
+
   :global(body) {
     background: #0a0a12;
     color: #c8c8d4;
@@ -187,25 +156,35 @@ Dr. Yuen is already talking.`,
   .station {
     max-width: 680px;
     margin: 0 auto;
-    padding: 2rem 1.5rem;
+    padding: 2.5rem 1.5rem 6rem;
     min-height: 100vh;
   }
 
-  .room-name {
-    font-size: 1.1rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    color: #7a7a9a;
+  /* ── Room ──────────────────────────────────────────────────────────────── */
+
+  .room-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
     margin-bottom: 0.25rem;
   }
 
-  .room-description {
-    line-height: 1.8;
-    white-space: pre-line;
-    margin-bottom: 2rem;
+  .room-name {
+    font-size: 1.05rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #6a6a8a;
+    margin: 0;
   }
 
-  /* DEV ONLY: GM badge — shows which rooms were GM-generated */
+  .room-description {
+    line-height: 1.85;
+    white-space: pre-line;
+    margin: 0.5rem 0 1.5rem;
+    color: #b8b8cc;
+  }
+
+  /* DEV ONLY: orange badge on GM-generated rooms */
   .gm-badge {
     display: inline-block;
     background: #ff6b35;
@@ -213,58 +192,71 @@ Dr. Yuen is already talking.`,
     font-size: 0.6rem;
     font-family: monospace;
     font-weight: bold;
-    padding: 2px 6px;
+    padding: 2px 5px;
     border-radius: 3px;
-    margin-bottom: 0.5rem;
     letter-spacing: 0.1em;
+    flex-shrink: 0;
   }
 
+  /* ── Sections ──────────────────────────────────────────────────────────── */
+
   h2 {
-    font-size: 0.75rem;
-    letter-spacing: 0.2em;
+    font-size: 0.7rem;
+    letter-spacing: 0.25em;
     text-transform: uppercase;
-    color: #555570;
-    margin: 1.5rem 0 0.75rem;
+    color: #44445a;
+    margin: 1.75rem 0 0.6rem;
+    font-family: monospace;
   }
+
+  /* ── Buttons (exits, npcs, objects) ───────────────────────────────────── */
 
   button {
     display: block;
     background: none;
-    border: 1px solid #2a2a40;
-    color: #c8c8d4;
+    border: 1px solid #22223a;
+    color: #b0b0c8;
     padding: 0.5rem 1rem;
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.35rem;
     cursor: pointer;
-    font-family: inherit;
-    font-size: 0.95rem;
+    font-family: 'Georgia', serif;
+    font-size: 0.93rem;
     text-align: left;
     width: 100%;
     transition: border-color 0.15s, color 0.15s;
+    border-radius: 2px;
   }
 
   button:hover:not(:disabled) {
-    border-color: #6060a0;
-    color: #fff;
+    border-color: #5050a0;
+    color: #e0e0f0;
   }
 
+  button:disabled,
   button.locked {
-    color: #444;
-    border-color: #1a1a28;
+    color: #333348;
+    border-color: #18182a;
     cursor: not-allowed;
   }
 
-  /* Dialog overlay */
+  .lock-glyph {
+    opacity: 0.3;
+    margin-left: 0.5rem;
+  }
+
+  /* ── Dialog overlay ────────────────────────────────────────────────────── */
+
   .dialog-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.7);
+    background: rgba(5, 5, 14, 0.82);
     display: flex;
     align-items: flex-end;
-    padding: 2rem;
+    padding: 1.5rem;
   }
 
   .dialog-box {
-    background: #0f0f1e;
+    background: #0c0c1c;
     border: 1px solid #2a2a50;
     padding: 1.5rem;
     max-width: 680px;
@@ -273,21 +265,36 @@ Dr. Yuen is already talking.`,
   }
 
   .dialog-speaker {
-    font-size: 0.75rem;
-    letter-spacing: 0.2em;
+    font-size: 0.7rem;
+    letter-spacing: 0.25em;
     text-transform: uppercase;
-    color: #6060a0;
-    margin: 0 0 0.5rem;
+    color: #4a4a80;
+    margin: 0 0 0.6rem;
+    font-family: monospace;
   }
 
   .dialog-text {
-    line-height: 1.8;
+    line-height: 1.85;
     margin-bottom: 1.25rem;
     white-space: pre-line;
+    color: #c0c0d8;
   }
 
+  .option-btn {
+    color: #9090b8;
+    border-color: #1e1e36;
+  }
+
+  .option-btn:hover:not(:disabled) {
+    color: #e0e0f8;
+    border-color: #4a4a90;
+  }
+
+  /* ── Misc ──────────────────────────────────────────────────────────────── */
+
   .loading {
-    color: #444;
+    color: #333348;
     font-style: italic;
+    margin-top: 3rem;
   }
 </style>

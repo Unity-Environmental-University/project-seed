@@ -1,14 +1,22 @@
 # ─────────────────────────────────────────────────────────────
 # LANGUAGE STATION — Act 1, Room: Arrival Bay
+# Human-authored. gmGenerated: false.
 #
-# The first room. The cohort has just docked.
-# Human-authored. All content here is static.
+# gm_hint: The GM's private note on this room — tone, puzzle state,
+# what should feel slightly wrong. Never shown to the player.
 # ─────────────────────────────────────────────────────────────
 
 id: arrival_bay
 name: Arrival Bay
 act: 1
 gmGenerated: false
+
+gm_hint: |
+  Entry point. The player should feel welcomed but slightly off-footed.
+  Yuen is trustworthy but evasive — she knows more than she says.
+  The notice board is a tutorial object; reading it sets a flag.
+  Do not generate additional options for Yuen here — this room is fully authored.
+  The corridor forward leads deeper in; orientation is the tutorial branch.
 
 description: |
   The docking collar sighs open and cold light floods in.
@@ -44,13 +52,7 @@ interactables:
       Do not enter the Relay Room without a staff escort.
       Station systems are currently in passive mode.
       — Station Administration
-
-# ─────────────────────────────────────────────────────────────
-# Dialog trees for this room.
-# Nodes reference each other by id.
-# source: authored = human-written (never changes)
-# source: gm       = AI GM generated (mixed in at runtime, looks identical)
-# ─────────────────────────────────────────────────────────────
+    setFlag: read_docking_notice
 
 dialog:
   yuen_arrival_entry:
@@ -120,9 +122,6 @@ dialog:
       Out here, those properties behave — unusually.
       You'll see. Or you'll feel it first."
     options:
-      - text: "Has anyone studied this before?"
-        source: authored
-        next: yuen_studied_before
       - text: Nod and move on.
         source: authored
         next: null
@@ -152,22 +151,6 @@ dialog:
       - text: "Cooperative?"
         source: authored
         next: yuen_cooperative
-      - text: Let it go.
-        source: authored
-        next: null
-
-  yuen_studied_before:
-    id: yuen_studied_before
-    speaker: dr_yuen
-    source: authored
-    text: |
-      "Twice before. Both cohorts completed their work.
-      Both filed comprehensive reports."
-
-      She straightens her jacket.
-
-      "The reports were coherent, which is more than you'd expect."
-    options:
       - text: Let it go.
         source: authored
         next: null
