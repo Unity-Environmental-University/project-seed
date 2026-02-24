@@ -4,7 +4,16 @@
   import { navigate, getAvailableExits } from './engine/navigation.js';
   import { startDialog, chooseOption, closeDialog } from './engine/dialog.js';
   import { loadAllContent, resolveDialogNode } from './engine/loader.js';
+  import { save } from './engine/save.js';
+  import {
+    entryRoomEntered, entryDialogStarted,
+    entryDialogChosen, entryDialogEnded,
+    entryInteractableUsed,
+  } from './engine/log.js';
   import RoomMessage from './ui/RoomMessage.svelte';
+
+  // Active save slot — will come from a slot picker eventually
+  const SLOT = 'slot_1';
 
   // ── Inline message (replaces alert()) ────────────────────────────────────
   let message = null; // { text, duration }
@@ -18,9 +27,16 @@
   }
 
   // ── Boot ──────────────────────────────────────────────────────────────────
-  onMount(() => {
+  // Order: load YAML rooms → load save (restores state + overlays)
+  onMount(async () => {
     loadAllContent();
-    markVisited('arrival_bay');
+    try {
+      await save.load(SLOT);
+    } catch (e) {
+      // Server not running — degrade gracefully, log loudly
+      console.warn('[Save] Server unavailable — running without persistence:', e.message);
+      markVisited('arrival_bay');
+    }
   });
 
   // ── Derived display state ─────────────────────────────────────────────────
@@ -35,11 +51,21 @@
       return;
     }
     const node = resolveDialogNode(room._dialog, npc.dialogEntry);
-    if (node) startDialog(node);
+    if (!node) return;
+    startDialog(node);
+    // Fire-and-forget: log dialog start
+    save.appendLog(SLOT, [entryDialogStarted($currentRoomId, npc.id)]);
   }
 
   function examine(item) {
     showMessage(item.description ?? item.text ?? 'Nothing more to see here.', 0);
+    // Fire-and-forget: log interactable use + patch flags if item sets one
+    const logEntry = entryInteractableUsed($currentRoomId, item.id, item.name);
+    const diff = { appendLog: [logEntry] };
+    if (item.setFlag) {
+      diff.player = { flags: { [item.setFlag]: true } };
+    }
+    save.patch(SLOT, diff);
   }
 
   function tryNavigate(direction) {
@@ -47,6 +73,27 @@
     const result = navigate(direction);
     if (!result.success) {
       showMessage(result.reason);
+      return;
+    }
+    // Fire-and-forget: patch player position + log room entry
+    save.patch(SLOT, {
+      player: save.playerDiff(),
+      appendLog: [entryRoomEntered($currentRoomId, room?.gmGenerated ?? false)],
+    });
+  }
+
+  // Wrap chooseOption to log the choice before delegating to dialog engine
+  function handleDialogChoice(option) {
+    const activeNode = $activeDialog;
+    // npcId lives on the speaker of the current node
+    const npcId = activeNode?.speaker ?? 'unknown';
+    save.appendLog(SLOT, [
+      entryDialogChosen($currentRoomId, npcId, activeNode?.id ?? null, option.text, option.source ?? 'authored'),
+    ]);
+    chooseOption(option);
+    // If dialog closed after this choice, log that too
+    if (!$activeDialog) {
+      save.appendLog(SLOT, [entryDialogEnded($currentRoomId, npcId)]);
     }
   }
 </script>
@@ -129,7 +176,7 @@
         <p class="dialog-text">{$activeDialog.text}</p>
         <div class="dialog-options">
           {#each ($activeDialog.options ?? []) as option}
-            <button class="option-btn" on:click={() => chooseOption(option)}>
+            <button class="option-btn" on:click={() => handleDialogChoice(option)}>
               {option.text}
             </button>
           {/each}
